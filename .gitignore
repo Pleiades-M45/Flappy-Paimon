@@ -1,5 +1,5 @@
 # Ignore the resources folder
-/resources/
+resources/
 
 # Java class files
 *.class
