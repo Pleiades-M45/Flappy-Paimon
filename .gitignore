@@ -1,0 +1,8 @@
+# Ignore the resources folder
+/resources/
+
+# Java class files
+*.class
+
+# VSCode settings
+.vscode/
