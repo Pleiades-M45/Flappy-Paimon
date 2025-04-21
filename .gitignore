@@ -1,5 +1,10 @@
-# Ignore the resources folder
-resources/
+# Ignore all files in resources/audio except specific ones
+resources/audio/*
+!resources/audio/flap.wav
+!resources/audio/gameover.wav
+
+# Ignore the entire fonts folder
+resources/fonts/
 
 # Java class files
 *.class

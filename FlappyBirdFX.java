@@ -17,6 +17,7 @@ import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.animation.AnimationTimer;
 import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
@@ -25,6 +26,7 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.Node;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -114,6 +116,11 @@ public class FlappyBirdFX extends Application {
     private Pane root;
     private Stage primaryStage;
     
+    private Media gameOverSound;
+    private MediaPlayer gameOverPlayer;
+
+    private Image gameOverImg;
+
     // Bird class
     class Bird {
         int x = birdX;
@@ -148,16 +155,21 @@ public class FlappyBirdFX extends Application {
             // Load logo
             logoImg = new Image("file:resources/images/flappypaimon.png");
             
-            // Load images
+            // Load images with all 7 backgrounds
             backgroundImages = new Image[] {
-                new Image("file:resources/images/flappybirdbg.png"),
-                new Image("file:resources/images/flappybirdbg2.png")
+                new Image("file:resources/images/bg_day.png"),
+                new Image("file:resources/images/bg_night.jpg"),
+                new Image("file:resources/images/bg_1.jpg"),
+                new Image("file:resources/images/bg_2.jpg"),
+                new Image("file:resources/images/bg_3.jpg"),
+                new Image("file:resources/images/bg_4.jpg"),
+                new Image("file:resources/images/bg_5.jpg")
             };
             backgroundImg = backgroundImages[0];
             
             birdImages = new Image[] {
                 new Image("file:resources/images/paimon.png"),
-                new Image("file:resources/images/flappybird.png")
+                new Image("file:resources/images/bird.png")
             };
             birdImg = birdImages[0];
             
@@ -166,12 +178,26 @@ public class FlappyBirdFX extends Application {
             pipeImages = new Image[2][2];
             pipeImages[0][0] = new Image("file:resources/images/toppipe.png"); // green top
             pipeImages[0][1] = new Image("file:resources/images/bottompipe.png"); // green bottom
-            pipeImages[1][0] = new Image("file:resources/images/blue_toppipe.png"); // blue top
-            pipeImages[1][1] = new Image("file:resources/images/blue_bottompipe.png"); // blue bottom
+            pipeImages[1][0] = new Image("file:resources/images/toppipe_blue.png"); // blue top
+            pipeImages[1][1] = new Image("file:resources/images/bottompipe_blue.png"); // blue bottom
             topPipeImg = pipeImages[0][0];
             bottomPipeImg = pipeImages[0][1];
             
+            // Load settings icon
             settingsImg = new Image("file:resources/images/settings.png");
+
+            // Load game over image
+            try {
+                // Load game over image using direct file path like other images
+                gameOverImg = new Image("file:resources/images/paimon_defeated.png");
+                
+                if (gameOverImg.isError()) {
+                    System.err.println("Error loading game over image: " + gameOverImg.getException());
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to load game over image: " + e.getMessage());
+                gameOverImg = null;
+            }
 
             // Load audio files
             backgroundMusicFiles = new Media[] {
@@ -184,6 +210,10 @@ public class FlappyBirdFX extends Application {
                 new Media(new File("resources/audio/flap.wav").toURI().toString()),
                 new Media(new File("resources/audio/flap2.wav").toURI().toString())
             };
+
+            gameOverSound = new Media(new File("resources/audio/gameover.wav").toURI().toString());
+            gameOverPlayer = new MediaPlayer(gameOverSound);
+            gameOverPlayer.setVolume(0.5);
 
             // Load the custom font
             gameFont = Font.loadFont("file:resources/fonts/zh-cn.ttf", 30);
@@ -232,7 +262,7 @@ public class FlappyBirdFX extends Application {
         // Set up the scene
         Scene scene = new Scene(root, BOARD_WIDTH, BOARD_HEIGHT);
         primaryStage.setScene(scene);
-        primaryStage.setTitle("Flappy Bird");
+        primaryStage.setTitle("Flappy Paimon");
         primaryStage.setResizable(false);
         
         // Set up keyboard controls
@@ -273,7 +303,7 @@ public class FlappyBirdFX extends Application {
         
         startButton = new Button("Start Game");
         startButton.setStyle("-fx-font-size: 20; -fx-min-width: 150; -fx-min-height: 40; " +
-                           "-fx-background-color: #2196F3; -fx-text-fill: white; " +  // Changed to blue
+                           "-fx-background-color: #2196F3; -fx-text-fill: white; " +
                            "-fx-background-radius: 20;");
         startButton.setEffect(dropShadow);
         startButton.setOnAction(e -> {
@@ -289,7 +319,7 @@ public class FlappyBirdFX extends Application {
         
         quitButton = new Button("Quit Game");
         quitButton.setStyle("-fx-font-size: 20; -fx-min-width: 150; -fx-min-height: 40; " +
-                          "-fx-background-color: #000000; -fx-text-fill: white; " +  // Changed to black
+                          "-fx-background-color: #000000; -fx-text-fill: white; " +
                           "-fx-background-radius: 20;");
         quitButton.setEffect(dropShadow);
         quitButton.setOnAction(e -> primaryStage.close());
@@ -297,7 +327,7 @@ public class FlappyBirdFX extends Application {
         menuBox = new VBox(20, startButton, quitButton);
         menuBox.setAlignment(Pos.CENTER);
         menuBox.setLayoutX(BOARD_WIDTH/2 - 75);
-        menuBox.setLayoutY(BOARD_HEIGHT/2 + 20);
+        menuBox.setLayoutY(BOARD_HEIGHT/2 + 90);
         
         root.getChildren().add(menuBox);
     }
@@ -335,24 +365,52 @@ public class FlappyBirdFX extends Application {
         String buttonStyle = "-fx-font-size: 12; -fx-min-width: 50; -fx-min-height: 25; " +
                            "-fx-background-radius: 10; -fx-text-fill: white;";
         
+        // Background names array corresponding to the images
+        String[] backgroundNames = {
+            "Day",
+            "Night",
+            "Star",
+            "Space",
+            "Village",
+            "Sky",
+            "Moon"
+        };
+        
         // Background selection buttons
-        HBox backgroundButtons = new HBox(5);
+        VBox bgButtonsContainer = new VBox(5);
+        HBox currentButtonRow = new HBox(5);
+
         for (int i = 0; i < backgroundImages.length; i++) {
             int index = i;
-            Button btn = new Button("BG " + (i+1));
-            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentBackground == index ? "#1a7bc8" : "#2196F3") + ";");
+            Button btn = new Button(backgroundNames[i]);
+            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentBackground == index ? "#135A91" : "#2196F3") + ";");
             btn.setOnAction(e -> {
                 currentBackground = index;
                 backgroundImg = backgroundImages[currentBackground];
                 backgroundPreview.setImage(backgroundImg);
                 drawStartScreen();
-                // Update button colors
-                for (int j = 0; j < backgroundButtons.getChildren().size(); j++) {
-                    Button b = (Button)backgroundButtons.getChildren().get(j);
-                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentBackground == j ? "#1a7bc8" : "#2196F3") + ";");
+                
+                // Update all button colors
+                int buttonCounter = 0;
+                for (Node node : bgButtonsContainer.getChildren()) {
+                    if (node instanceof HBox) {
+                        for (Node buttonNode : ((HBox)node).getChildren()) {
+                            Button b = (Button)buttonNode;
+                            b.setStyle(buttonStyle + "-fx-background-color: " + 
+                                    (currentBackground == buttonCounter ? "#135A91" : "#2196F3") + ";");
+                            buttonCounter++;
+                        }
+                    }
                 }
             });
-            backgroundButtons.getChildren().add(btn);
+            
+            currentButtonRow.getChildren().add(btn);
+            
+            // Start new row after every 2 buttons
+            if (currentButtonRow.getChildren().size() >= 2 || i == backgroundImages.length - 1) {
+                bgButtonsContainer.getChildren().add(currentButtonRow);
+                currentButtonRow = new HBox(5);
+            }
         }
         
         // Bird selection buttons
@@ -360,7 +418,7 @@ public class FlappyBirdFX extends Application {
         for (int i = 0; i < birdImages.length; i++) {
             int index = i;
             Button btn = new Button(i == 0 ? "Paimon" : "Bird");
-            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentBird == index ? "#cc7a00" : "#FF9800") + ";");
+            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentBird == index ? "#b56e05" : "#FF9800") + ";");
             btn.setOnAction(e -> {
                 currentBird = index;
                 birdImg = birdImages[currentBird];
@@ -377,7 +435,7 @@ public class FlappyBirdFX extends Application {
                 // Update button colors
                 for (int j = 0; j < birdButtons.getChildren().size(); j++) {
                     Button b = (Button)birdButtons.getChildren().get(j);
-                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentBird == j ? "#cc7a00" : "#FF9800") + ";");
+                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentBird == j ? "#b56e05" : "#FF9800") + ";");
                 }
             });
             birdButtons.getChildren().add(btn);
@@ -389,7 +447,7 @@ public class FlappyBirdFX extends Application {
         for (int i = 0; i < pipeImages.length; i++) {
             int index = i;
             Button btn = new Button(pipeNames[i]);
-            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentPipes == index ? "#3d8b40" : "#4CAF50") + ";");
+            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentPipes == index ? "#357938" : "#4CAF50") + ";");
             btn.setOnAction(e -> {
                 currentPipes = index;
                 topPipeImg = pipeImages[currentPipes][0];
@@ -402,7 +460,7 @@ public class FlappyBirdFX extends Application {
                 // Update button colors
                 for (int j = 0; j < pipeButtons.getChildren().size(); j++) {
                     Button b = (Button)pipeButtons.getChildren().get(j);
-                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentPipes == j ? "#3d8b40" : "#4CAF50") + ";");
+                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentPipes == j ? "#357938" : "#4CAF50") + ";");
                 }
             });
             pipeButtons.getChildren().add(btn);
@@ -413,7 +471,7 @@ public class FlappyBirdFX extends Application {
         for (int i = 0; i < backgroundMusicFiles.length; i++) {
             int index = i;
             Button btn = new Button("Music " + (i+1));
-            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentMusic == index ? "#7b1fa2" : "#9C27B0") + ";");
+            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentMusic == index ? "#661a87" : "#9C27B0") + ";");
             btn.setOnAction(e -> {
                 currentMusic = index;
                 backgroundMusicPlayer.stop();
@@ -426,7 +484,7 @@ public class FlappyBirdFX extends Application {
                 // Update button colors
                 for (int j = 0; j < musicButtons.getChildren().size(); j++) {
                     Button b = (Button)musicButtons.getChildren().get(j);
-                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentMusic == j ? "#7b1fa2" : "#9C27B0") + ";");
+                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentMusic == j ? "#661a87" : "#9C27B0") + ";");
                 }
             });
             musicButtons.getChildren().add(btn);
@@ -437,7 +495,7 @@ public class FlappyBirdFX extends Application {
         for (int i = 0; i < flapSoundFiles.length; i++) {
             int index = i;
             Button btn = new Button("Sound " + (i+1));
-            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentFlapSound == index ? "#c2185b" : "#E91E63") + ";");
+            btn.setStyle(buttonStyle + "-fx-background-color: " + (currentFlapSound == index ? "#a91750" : "#E91E63") + ";");
             btn.setOnAction(e -> {
                 currentFlapSound = index;
                 flapSoundPlayer.stop();
@@ -446,7 +504,7 @@ public class FlappyBirdFX extends Application {
                 // Update button colors
                 for (int j = 0; j < flapButtons.getChildren().size(); j++) {
                     Button b = (Button)flapButtons.getChildren().get(j);
-                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentFlapSound == j ? "#c2185b" : "#E91E63") + ";");
+                    b.setStyle(buttonStyle + "-fx-background-color: " + (currentFlapSound == j ? "#a91750" : "#E91E63") + ";");
                 }
             });
             flapButtons.getChildren().add(btn);
@@ -479,7 +537,7 @@ public class FlappyBirdFX extends Application {
         // Create settings labels with consistent styling
         String labelStyle = "-fx-font-size: 14; -fx-text-fill: white; -fx-font-weight: bold;";
         
-        Label bgLabel = new Label("Background:");
+        Label bgLabel = new Label("Background Theme:");
         bgLabel.setStyle(labelStyle);
         
         Label birdLabel = new Label("Bird:");
@@ -501,7 +559,7 @@ public class FlappyBirdFX extends Application {
         flapVolLabel.setStyle(labelStyle);
         
         // Container for preview images with border and padding
-        HBox bgPreviewBox = new HBox(10, backgroundButtons, backgroundPreview);
+        HBox bgPreviewBox = new HBox(10, bgButtonsContainer, backgroundPreview);
         bgPreviewBox.setStyle("-fx-padding: 5; -fx-background-color: rgba(33, 150, 243, 0.3); -fx-background-radius: 5;");
         
         HBox birdPreviewBox = new HBox(10, birdButtons, birdPreview);
@@ -531,6 +589,44 @@ public class FlappyBirdFX extends Application {
         settingsScrollPane.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         settingsScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         settingsScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        // Apply custom CSS styling to the scrollbar
+        settingsScrollPane.getStylesheets().add("data:text/css," + 
+        ".scroll-bar:vertical {" +
+        "    -fx-background-color: transparent;" +
+        "    -fx-pref-width: 12;" +
+        "}" +
+        ".scroll-bar:vertical .track {" +
+        "    -fx-background-color: rgba(20, 20, 20, 0.7);" +
+        "    -fx-border-color: transparent;" +
+        "    -fx-background-radius: 6;" +
+        "    -fx-border-radius: 6;" +
+        "}" +
+        ".scroll-bar:vertical .thumb {" +
+        "    -fx-background-color: rgba(70, 70, 70, 0.8);" +
+        "    -fx-background-radius: 6;" +
+        "    -fx-border-radius: 6;" +
+        "}" +
+        ".scroll-bar:vertical .thumb:hover {" +
+        "    -fx-background-color: rgba(100, 100, 100, 0.9);" +
+        "}" +
+        ".scroll-bar:vertical .thumb:pressed {" +
+        "    -fx-background-color: rgba(130, 130, 130, 1.0);" +
+        "}" +
+        ".scroll-bar .increment-button, .scroll-bar .decrement-button {" +
+        "    -fx-background-color: rgba(30, 30, 30, 0.6);" +
+        "    -fx-background-radius: 6;" +
+        "    -fx-padding: 5;" +
+        "}" +
+        ".scroll-bar .increment-arrow, .scroll-bar .decrement-arrow {" +
+        "    -fx-background-color: rgba(120, 120, 120, 0.7);" +
+        "    -fx-shape: \"M 0 0 L 4 4 L 8 0 Z\";" +
+        "    -fx-padding: 2;" +
+        "}" +
+        ".scroll-bar .increment-arrow:hover, .scroll-bar .decrement-arrow:hover {" +
+        "    -fx-background-color: rgba(150, 150, 150, 0.9);" +
+        "}"
+        );
         
         // Add a background pane with rounded corners and drop shadow
         Rectangle settingsBg = new Rectangle(260, 470);
@@ -565,10 +661,10 @@ public class FlappyBirdFX extends Application {
         settingsVisible = !settingsVisible;
         
         // Create a copy of the children list to avoid ConcurrentModificationException
-        ArrayList<javafx.scene.Node> childrenCopy = new ArrayList<>(root.getChildren());
+        ArrayList<Node> childrenCopy = new ArrayList<>(root.getChildren());
         
         // Find the settings background rectangle
-        for (javafx.scene.Node node : childrenCopy) {
+        for (Node node : childrenCopy) {
             if (node instanceof Rectangle && "settingsBg".equals(node.getUserData())) {
                 node.setVisible(settingsVisible);
             }
@@ -579,7 +675,7 @@ public class FlappyBirdFX extends Application {
         // Bring settings to front when visible
         if (settingsVisible) {
             settingsScrollPane.toFront();
-            for (javafx.scene.Node node : childrenCopy) {
+            for (Node node : childrenCopy) {
                 if (node instanceof Rectangle && "settingsBg".equals(node.getUserData())) {
                     node.toFront();
                     settingsScrollPane.toFront();
@@ -597,10 +693,10 @@ public class FlappyBirdFX extends Application {
         settingsVisible = !settingsVisible;
         
         // Create a copy of the children list to avoid ConcurrentModificationException
-        ArrayList<javafx.scene.Node> childrenCopy = new ArrayList<>(root.getChildren());
+        ArrayList<Node> childrenCopy = new ArrayList<>(root.getChildren());
         
         // Find the settings background rectangle
-        for (javafx.scene.Node node : childrenCopy) {
+        for (Node node : childrenCopy) {
             if (node instanceof Rectangle && "settingsBg".equals(node.getUserData())) {
                 node.setVisible(settingsVisible);
             }
@@ -610,7 +706,7 @@ public class FlappyBirdFX extends Application {
         
         // Bring settings to front when visible
         if (settingsVisible) {
-            for (javafx.scene.Node node : childrenCopy) {
+            for (Node node : childrenCopy) {
                 if (node instanceof Rectangle && "settingsBg".equals(node.getUserData())) {
                     node.toFront();
                     settingsScrollPane.toFront();
@@ -643,9 +739,9 @@ public class FlappyBirdFX extends Application {
         
         // Draw logo at top center
         if (logoImg != null) {
-            double logoWidth = 250;
-            double logoHeight = 100;
-            gc.drawImage(logoImg, BOARD_WIDTH/2 - logoWidth/2, 30, logoWidth, logoHeight);
+            double logoWidth = BOARD_WIDTH;
+            double logoHeight = BOARD_HEIGHT;
+            gc.drawImage(logoImg, BOARD_WIDTH/2 - logoWidth/2, 0, logoWidth, logoHeight);
         }
         
         // Draw high score at center
@@ -653,7 +749,7 @@ public class FlappyBirdFX extends Application {
         gc.setFont(gameFont);
         String highScoreText = "High Score: " + (int) highScore;
         double textWidth = gc.getFont().getSize() * highScoreText.length() * 0.6;
-        gc.fillText(highScoreText, BOARD_WIDTH/2 - textWidth/2, BOARD_HEIGHT/2 - 30);
+        gc.fillText(highScoreText, BOARD_WIDTH/2 - textWidth/2, BOARD_HEIGHT/2 + 60);
     }
     
     private void setupGame() {
@@ -691,8 +787,7 @@ public class FlappyBirdFX extends Application {
                     if (backgroundMusicPlayer != null) {
                         backgroundMusicPlayer.stop();
                     }
-                    // Show menu again after game over
-                    resetGame();
+                    handleGameOver();  // Call handleGameOver instead of resetGame
                 }
             }
         };
@@ -737,15 +832,43 @@ public class FlappyBirdFX extends Application {
         // First draw the full game state
         draw();
         
-        // Then draw the game over overlay
+        // Draw semi-transparent overlay
         gc.setFill(new Color(0, 0, 0, 0.5));
         gc.fillRect(0, 0, BOARD_WIDTH, BOARD_HEIGHT);
         
-        gc.setFill(Color.WHITE);
+        // Draw defeated Paimon image centered
+        if (gameOverImg != null) {
+            double imgWidth = 220;
+            double imgHeight = 220;
+            double x = (BOARD_WIDTH - imgWidth) / 2;
+            double y = (BOARD_HEIGHT - imgHeight) / 2 - 100; // Move up by 100 pixels
+            
+            try {
+                gc.drawImage(gameOverImg, x, y, imgWidth, imgHeight);
+            } catch (Exception e) {
+                System.err.println("Failed to draw game over image: " + e.getMessage());
+            }
+        }
+        
+        // Draw score text below the image
+        gc.setFill(Color.YELLOW);
         gc.setFont(gameFont);
-        gc.fillText("Game Over", BOARD_WIDTH/2 - 70, BOARD_HEIGHT/2 - 80);
-        gc.fillText("Score: " + (int)score, BOARD_WIDTH/2 - 70, BOARD_HEIGHT/2 - 30);
-        gc.fillText("High Score: " + (int)highScore, BOARD_WIDTH/2 - 70, BOARD_HEIGHT/2 + 20);
+        double textY = BOARD_HEIGHT/2 + 40; // Start text lower
+        
+        // Center align text
+        String gameOverText = "Game Over!!";
+        double textWidth = gc.getFont().getSize() * gameOverText.length() * 0.6;
+        gc.fillText(gameOverText, BOARD_WIDTH/2 - textWidth/2, textY);
+
+        gc.setFill(Color.GREENYELLOW);
+        String scoreText = "Score: " + (int)score;
+        textWidth = gc.getFont().getSize() * scoreText.length() * 0.6;
+        gc.fillText(scoreText, BOARD_WIDTH/2 - textWidth/2, textY + 40);
+
+        gc.setFill(Color.WHITE);
+        String highScoreText = "High Score: " + (int)highScore;
+        textWidth = gc.getFont().getSize() * highScoreText.length() * 0.6;
+        gc.fillText(highScoreText, BOARD_WIDTH/2 - textWidth/2, textY + 80);
     }
     
     private void move() {
@@ -754,31 +877,67 @@ public class FlappyBirdFX extends Application {
             velocityY += gravity;
             bird.y += velocityY;
             bird.y = Math.max(bird.y, 0);
+
+            // Check for collisions
+            for (Pipe pipe : pipes) {
+                if (collision(bird, pipe)) {
+                    handleGameOver();
+                    return;
+                }
+            }
+
+            // Check if bird hits ground
+            if (bird.y + bird.height > BOARD_HEIGHT) {
+                handleGameOver();
+                return;
+            }
+
+            // Update score
+            for (Pipe pipe : pipes) {
+                if (!pipe.passed && pipe.x + pipe.width < bird.x) {
+                    pipe.passed = true;
+                    score += 0.5; // Add 0.5 per pipe (1.0 per pair)
+                    if (score > highScore) {
+                        highScore = score;
+                    }
+                }
+            }
         }
         
         // Pipe movement
         for (Pipe pipe : pipes) {
             pipe.x += velocityX;
-            
-            if (!pipe.passed && bird.x > pipe.x + pipe.width) {
-                score += 0.5;
-                pipe.passed = true;
-                highScore = Math.max(score, highScore);
-            }
-            
-            if (collision(bird, pipe)) {
-                gameOver = true;
-            }
         }
         
         // Remove off-screen pipes
         pipes.removeIf(pipe -> pipe.x + pipe.width < 0);
-        
-        if (bird.y > BOARD_HEIGHT) {
+    }
+
+    private void handleGameOver() {
+        if (!gameOver) {  // Only execute once
             gameOver = true;
+            
+            // Play game over sound
+            if (gameOverPlayer != null) {
+                gameOverPlayer.stop();
+                gameOverPlayer.seek(Duration.ZERO);
+                gameOverPlayer.play();
+            }
+            
+            // Show menu after a short delay
+            PauseTransition delay = new PauseTransition(Duration.seconds(2));
+            delay.setOnFinished(event -> {
+                if (gameOverPlayer != null) {
+                    gameOverPlayer.stop();
+                }
+                resetGame();
+                menuBox.setVisible(true);
+                settingsIcon.setVisible(true);
+            });
+            delay.play();
         }
     }
-    
+
     private boolean collision(Bird a, Pipe b) {
         int threshold = 5;
         return a.x + a.width - threshold > b.x + threshold &&
